@@ -35,6 +35,7 @@ char receive_char(char *mapped) {
         usleep(50);  // Prevent excessive contention
     }
 
+
     // Find the character with the highest cache hits
     int max_hits = 0, detected_char = '?';
     for (int j = 0; j < 256; j++) {
@@ -62,11 +63,17 @@ int main() {
     }
 
     char *mapped = mmap(NULL, 256 * 64, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    printf(
+        "Shared memory region: %p\n"
+        "Size: %d bytes\n",
+        mapped, 256 * 64
+    );
     if (mapped == MAP_FAILED) {
+        // printf("help\n");
         perror("mmap failed");
         return 1;
     }
-
+    posix_memalign((void**)&mapped, 64, 256 * 64);
     printf("Waiting for sender...\n");
     // sleep(2);
     while (1) {

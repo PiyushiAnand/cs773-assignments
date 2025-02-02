@@ -19,13 +19,16 @@ void flush(void *addr) {
 }
 
 void send_char(char c, char *mapped) {
+    printf("Sending character: %c (0x%02X)\n", c, (unsigned char)c); 
     for (int i = 0; i < ITERATIONS; i++) {
         // Flush all 256 cache lines
         for (int j = 0; j < 256; j++) {
-            flush(&mapped[j * 64]); // Assuming 64-byte cache line
+            flush(&mapped[j * 64]); // Ensure mapped is valid
         }
-        // Access the address corresponding to the character
-        *(volatile char *)&mapped[(unsigned char)c * 64];
+
+        // Perform a read/write to access the intended address
+        volatile char dummy = mapped[(unsigned char)c * 64]; // Force access
+
         usleep(50);  // Delay for synchronization
     }
 }
@@ -62,7 +65,7 @@ int main() {
         perror("mmap failed");
         return 1;
     }
-
+    posix_memalign((void**)&mapped, 64, 256 * 64);
     // Start Transmission with STX (Start of Text)
     send_char('\x02', mapped);
     
