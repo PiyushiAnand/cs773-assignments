@@ -9,16 +9,17 @@
 #include <string.h>
 #include "utils.h"
 #include <time.h>
+#include "./cacheutils.h"
 
 #define ALIGNMENT 64
-#define SHARED_FILE "/dev/shm/mychanel"
+#define SHARED_FILE "/dev/shm/newchnel"
 #define ITERATIONS 1000
 #define THRESHOLD 245  // Adjust based on calibration
 #define SYNC_FLAG_OFFSET 256 * 64
 
-void flush(void *addr) {
-    _mm_clflush(addr);
-}
+// void flush(void *addr) {
+//     _mm_clflush(addr);
+// }
 
 void *align_shared_mmap(size_t size, size_t alignment) {
     // Open shared memory file (create if doesn't exist)
@@ -48,7 +49,6 @@ void *align_shared_mmap(size_t size, size_t alignment) {
 
     // Close the file descriptor as it's no longer needed
     close(fd);
-
     // Return the aligned address
     return (void *)aligned_addr;
 }
@@ -56,19 +56,24 @@ void *align_shared_mmap(size_t size, size_t alignment) {
 void send_char(char c, char *mapped) {
     printf("Sending character: %c (0x%02X)\n", c, (unsigned char)c); 
     // printf(mapped[SYNC_FLAG_OFFSET] == 0 ? "Waiting for receiver...\n" : "Receiver ready\n");
-    mapped[SYNC_FLAG_OFFSET] = 1;
+    // mapped[SYNC_FLAG_OFFSET] = 1;
     for (int i = 0; i < ITERATIONS; i++) {
         // Flush all 256 cache lines
+        int start = rdtsc();
         for (int j = 0; j < 256; j++) {
-            flush((char *)mapped + j * 64); // Ensure mapped is valid
+            flush((void *)(mapped + j * 64)); // Ensure mapped is valid
         }
-
+       int end = rdtsc();
+       printf("Flush time: %d\n", end - start);
         // Perform a read/write to access the intended address
-        volatile char dummy = mapped[(unsigned char)c * 64]; // Force access
-
-        usleep(50);  // Delay for synchronization
+        // volatile char dummy = mapped[(unsigned char)c * 64]; // Force access
+        start = rdtsc();
+        maccess((void *)(mapped + (unsigned char)c * 64));  // Force access
+        end = rdtsc();
+        printf("Access time: %d\n", end - start);
+        usleep(100);  // Delay for synchronization
     }
-    mapped[SYNC_FLAG_OFFSET] = 0;
+    // mapped[SYNC_FLAG_OFFSET] = 0;
 }
 
 int main() {
@@ -112,14 +117,14 @@ int main() {
         mapped, 256 * 64
     );
 
-    usleep(100000); // Ensure receiver starts
+    // usleep(100000); // Ensure receiver starts
 
     // Start Transmission with STX (Start of Text)
-    send_char('\x02', (char *)mapped);
+    while(1)send_char('a', (char *)mapped);
     
     for (size_t i = 0; i < msg_size; i++) {
         send_char(msg[i], (char *)mapped);
-        usleep(10000);  // Allow receiver time to process
+        usleep(1000);  // Allow receiver time to process
     }
     
     // End Transmission with ETX (End of Text)

@@ -8,65 +8,81 @@
 #include <unistd.h>
 #include <string.h>
 #include "utils.h"
+#include "./cacheutils.h"
 
-#define SHARED_FILE "/dev/shm/mychanel"
-#define ITERATIONS 1000
+#define SHARED_FILE "/dev/shm/newchnel"
+#define ITERATIONS 2000
 #define SYNC_FLAG_OFFSET 256 * 64
-// #define THRESHOLD 245  // Adjust based on calibration
+#define THRESHOLD 215  // Adjust based on calibration
 #define ALIGNMENT 64
-int calibrate_threshold(char *mapped) {
-    int sum = 0;
-    for (int i = 0; i < 1000; i++) {
-        sum += measure_access_time(&mapped[0]);
-    }
-    return sum / 1000 + 10;  // Add margin
-}
+// int calibrate_threshold(char *mapped) {
+//     int sum = 0;
+//     for (int i = 0; i < 1000; i++) {
+//         sum += measure_access_time(&mapped[0]);
+//     }
+//     return sum / 1000 + 10;  // Add margin
+// }
 
 int measure_access_time(void *addr) {
-    uint32_t aux;
-    uint64_t start, end;
-    volatile char *ptr = (char *)addr;
+    // uint32_t aux;
+    // uint64_t start, end;
+    // volatile char *ptr = (char *)addr;
     
-    asm volatile ("lfence");  // Ensure previous operations are completed
-    start = __rdtscp(&aux);  
-    asm volatile ("lfence");  // Prevent speculative execution
-    *ptr;                    
-    asm volatile ("lfence");  // Ensure load is completed before measuring
-    end = __rdtscp(&aux);
+    // asm volatile ("lfence");  // Ensure previous operations are completed
+    // start = __rdtscp(&aux);  
+    // asm volatile ("lfence");  // Prevent speculative execution
+    // *ptr;                    
+    // asm volatile ("lfence");  // Ensure load is completed before measuring
+    // end = __rdtscp(&aux);
     
-    return (int)(end - start);
+    // return (int)(end - start);
+
+    size_t time = rdtsc();
+    maccess(addr);
+    return rdtsc() - time;
 }
 
 char receive_char(char *mapped) {
-    int hit_counts[256] = {0};
-    int threshold = calibrate_threshold(mapped);
+    int miss_counts[256] = {0};
+    //int threshold = calibrate_threshold(mapped);
     //print if the sync flag is true or not
-    printf(mapped[SYNC_FLAG_OFFSET] == 0 ? "Waiting for sender...\n" : "Sender ready\n");
-    while (mapped[SYNC_FLAG_OFFSET] == 0) {
-        usleep(10);
-    }
+    // printf(mapped[SYNC_FLAG_OFFSET] == 0 ? "Waiting for sender...\n" : "Sender ready\n");
+    // while (mapped[SYNC_FLAG_OFFSET] == 0) {
+    //     usleep(10);
+    // }
     for (int i = 0; i < ITERATIONS; i++) {
+        usleep(2000);  // Prevent excessive contention
         for (int j = 0; j < 256; j++) {
+            // int access_time = measure_access_time(mapped+j * 64);
+            _mm_mfence();
             int access_time = measure_access_time(&mapped[j * 64]);
+        
             // printf("%d\n",access_time);
-            if (access_time < threshold) {
+            if (access_time > THRESHOLD) {
                 // printf("Hit: %d\n", j);
-                hit_counts[j]++;
+                miss_counts[j]++;
             }
+            
         }
-        usleep(50);  // Prevent excessive contention
+        //usleep(50);  // Prevent excessive contention
     }
 
 
     // Find the character with the highest cache hits
-    int max_hits = 0, detected_char = '?';
+    int min_miss = INT32_MAX, detected_char = 0;
+    printf("Misses of a : %d\n", miss_counts[61]);
+    printf("Misses of b : %d\n", miss_counts[62]);
     for (int j = 0; j < 256; j++) {
-        if (hit_counts[j] > max_hits) {
+        if (miss_counts[j] < min_miss) {
             // printf("Hit: %d\n", j);
-            max_hits = hit_counts[j];
+            // printf("Char: %c, Misses: %d\n",j,miss_counts[j]);
+            min_miss = miss_counts[j];
             detected_char = j;
         }
     }
+
+    printf("Misses: %d\n", min_miss);
+    printf("Detected: %d\n", detected_char);
 
     return (char)detected_char;
 }
@@ -133,14 +149,13 @@ int main() {
         mapped, 256 * 64
     );
     //
-    int THRESHOLD = calibrate_threshold(mapped);
+    // int THRESHOLD = calibrate_threshold(mapped);
     printf("Waiting for sender...\n");
-    
+    usleep(1000000);  // Wait for sender to start
     int received_start = 0;
     while (1) {
         char c = receive_char(mapped);
         printf("Received: %c\n", c);
-
         // Check for start and end markers
         if (c == '\x02') {
             received_msg_size = 0; // Reset buffer
@@ -150,7 +165,7 @@ int main() {
         } 
         if(received_start)received_msg[received_msg_size++] = c;
         
-        usleep(1000);  // Allow sender time to process
+        // usleep(1000);  // Allow sender time to process
     }
 
     received_msg[received_msg_size] = '\0'; // Null-terminate the string
