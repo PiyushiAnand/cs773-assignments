@@ -1,0 +1,7 @@
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/CMakeFiles/sender.dir
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/CMakeFiles/receiver.dir
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/CMakeFiles/edit_cache.dir
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/CMakeFiles/rebuild_cache.dir
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/libs/CMakeFiles/util.dir
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/libs/CMakeFiles/edit_cache.dir
+/home/user/Desktop/arch/Ass1/Flush-Reload/build/libs/CMakeFiles/rebuild_cache.dir
