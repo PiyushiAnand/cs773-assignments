@@ -23,8 +23,6 @@ int measure_access_time(void *addr) {
     maccess(addr);
     return rdtsc() - time;
 }
-
-
 char receive_char(char *mapped) {
     int miss_counts[256] = {0};
     for (int i = 0; i < ITERATIONS; i++) {

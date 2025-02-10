@@ -15,7 +15,7 @@
 #define SHARED_FILE "/dev/shm/newchnel"
 #define ACK_FILE_1 "/dev/shm/ack1"
 #define ACK_FILE_2 "/dev/shm/ack2"
-#define ITERATIONS 1000
+#define ITERATIONS 2000
 #define THRESHOLD 500 //Adjust based on calibration
 #define SYNC_FLAG_OFFSET 256 * 64
 
